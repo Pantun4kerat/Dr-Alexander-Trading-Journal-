@@ -23,6 +23,16 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
   <script>
+    // Lightweight jQuery Fallback to prevent extensions/scripts throw '$ is not defined'
+    window.$ = window.jQuery = window.$ || function(selector) {
+      if (typeof selector === 'function') {
+        if (document.readyState !== 'loading') selector();
+        else document.addEventListener('DOMContentLoaded', selector);
+        return;
+      }
+      return document.querySelectorAll(selector);
+    };
+
     tailwind.config = {
       darkMode: 'class',
       theme: {
@@ -1288,6 +1298,22 @@
     let chartEquityInstance = null;
     let isOnlineStatus = navigator.onLine;
 
+    // Explicit Global Modal Handlers to resolve inline onclick ReferenceErrors
+    window.openModal = function(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('hidden');
+    };
+
+    window.closeModal = function(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    };
+
+    window.dismissHaltBanner = function() {
+      const el = document.getElementById('alertHaltBanner');
+      if (el) el.classList.add('hidden');
+    };
+
     const bookDemoTrades = [
       {
         id: "T-2026-001",
@@ -1380,7 +1406,7 @@
         status: "CLOSED",
         dateOut: "2026-10-25T13:00",
         exitPrice: 215.50,
-        exitReason: "Discretionary / Impatient",
+        exitReason: "Discretionary / Imppatient",
         exitImage: "",
         netPnL: 746.00,
         rMultiple: 0.45,
@@ -1456,14 +1482,20 @@
       }
     ];
 
-    window.addEventListener('DOMContentLoaded', () => {
+    function initApp() {
       loadStorage();
       setupEventListeners();
       initRealtimeCalculators();
       setupMT5Import();
       setupNetworkStatusListeners();
       renderAll();
-    });
+    }
+
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', initApp);
+    } else {
+      initApp();
+    }
 
     function setupNetworkStatusListeners() {
       window.addEventListener('online', updateNetworkUI);
@@ -1596,7 +1628,7 @@
       `).join('');
     }
 
-    function deleteCustomSetup(idOrIdx) {
+    window.deleteCustomSetup = function(idOrIdx) {
       if (appState.customSetups.length <= 1) {
         showToast("You must have at least one setup in your journal", "warn");
         return;
@@ -1605,7 +1637,7 @@
       saveStorage();
       renderSetupOptions();
       showToast("Setup removed", "info");
-    }
+    };
 
     function updateTickerDatalist() {
       const datalist = document.getElementById('datalistTickers');
@@ -1664,7 +1696,7 @@
     }
 
     function updateInstrumentFieldsVisibility() {
-      const inst = document.getElementById('inpInstrument').value;
+      const inst = document.getElementById('inpInstrument')?.value;
       const cfdBox = document.getElementById('boxCfdTradeFields');
       const multInput = document.getElementById('inpMultiplier');
       const levInput = document.getElementById('inpLeverage');
@@ -1718,70 +1750,97 @@
         });
       });
 
-      document.getElementById('btnQuickTrade').addEventListener('click', openNewTradeModal);
-      document.getElementById('btnSetupManager').addEventListener('click', () => openModal('modalSetupManager'));
-      document.getElementById('btnCloudSync').addEventListener('click', () => openModal('modalCloudSync'));
+      const btnQuickTrade = document.getElementById('btnQuickTrade');
+      if (btnQuickTrade) btnQuickTrade.addEventListener('click', openNewTradeModal);
+      
+      const btnSetupManager = document.getElementById('btnSetupManager');
+      if (btnSetupManager) btnSetupManager.addEventListener('click', () => openModal('modalSetupManager'));
 
-      document.getElementById('formAddSetup').addEventListener('submit', (e) => {
-        e.preventDefault();
-        const name = document.getElementById('inpNewSetupName').value.trim();
-        const desc = document.getElementById('inpNewSetupDesc').value.trim();
-        if (!name) return;
-        appState.customSetups.push({ id: 's_' + Date.now(), name, desc });
-        saveStorage();
-        renderSetupOptions();
-        document.getElementById('inpNewSetupName').value = '';
-        document.getElementById('inpNewSetupDesc').value = '';
-        showToast(`Setup "${name}" added!`, "success");
-      });
+      const btnCloudSync = document.getElementById('btnCloudSync');
+      if (btnCloudSync) btnCloudSync.addEventListener('click', () => openModal('modalCloudSync'));
 
-      document.getElementById('btnResetDefaultSetups').addEventListener('click', () => {
-        appState.customSetups = [...defaultElderSetups];
-        saveStorage();
-        renderSetupOptions();
-        showToast("Reset to Dr. Elder's default setups", "info");
-      });
+      const formAddSetup = document.getElementById('formAddSetup');
+      if (formAddSetup) {
+        formAddSetup.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const name = document.getElementById('inpNewSetupName').value.trim();
+          const desc = document.getElementById('inpNewSetupDesc').value.trim();
+          if (!name) return;
+          appState.customSetups.push({ id: 's_' + Date.now(), name, desc });
+          saveStorage();
+          renderSetupOptions();
+          document.getElementById('inpNewSetupName').value = '';
+          document.getElementById('inpNewSetupDesc').value = '';
+          showToast(`Setup "${name}" added!`, "success");
+        });
+      }
+
+      const btnResetDefaultSetups = document.getElementById('btnResetDefaultSetups');
+      if (btnResetDefaultSetups) {
+        btnResetDefaultSetups.addEventListener('click', () => {
+          appState.customSetups = [...defaultElderSetups];
+          saveStorage();
+          renderSetupOptions();
+          showToast("Reset to Dr. Elder's default setups", "info");
+        });
+      }
 
       const btnDataMenu = document.getElementById('btnDataMenu');
       const dataDropdown = document.getElementById('dataDropdown');
-      btnDataMenu.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dataDropdown.classList.toggle('hidden');
-      });
-      document.addEventListener('click', () => dataDropdown.classList.add('hidden'));
+      if (btnDataMenu && dataDropdown) {
+        btnDataMenu.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dataDropdown.classList.toggle('hidden');
+        });
+        document.addEventListener('click', () => dataDropdown.classList.add('hidden'));
+      }
 
-      document.getElementById('btnExportJSON').addEventListener('click', exportJSON);
-      document.getElementById('fileImportJSON').addEventListener('change', importJSON);
-      document.getElementById('fileSyncModal').addEventListener('change', importJSON);
-      document.getElementById('btnExportCSV').addEventListener('click', exportCSV);
-      document.getElementById('btnGoogleSheetsGuide').addEventListener('click', () => openModal('modalGoogleSheetsGuide'));
-      document.getElementById('btnResetDemo').addEventListener('click', resetToDemoData);
+      const btnExportJSON = document.getElementById('btnExportJSON');
+      if (btnExportJSON) btnExportJSON.addEventListener('click', exportJSON);
 
-      document.getElementById('btnSettings').addEventListener('click', () => {
-        document.getElementById('settingEquity').value = appState.accountEquity;
-        document.getElementById('settingMonthEquity').value = appState.startOfMonthEquity;
-        document.getElementById('settingRiskLimit').value = appState.maxRiskPct;
-        document.getElementById('settingFee').value = appState.defaultFee;
-        openModal('modalSettings');
-      });
+      const fileImportJSON = document.getElementById('fileImportJSON');
+      if (fileImportJSON) fileImportJSON.addEventListener('change', importJSON);
 
-      document.getElementById('filterSearch').addEventListener('input', renderTradeLog);
-      document.getElementById('filterInstrument').addEventListener('change', renderTradeLog);
-      document.getElementById('filterStatus').addEventListener('change', renderTradeLog);
-      document.getElementById('filterGrade').addEventListener('change', renderTradeLog);
-      document.getElementById('filterSetupType').addEventListener('change', renderTradeLog);
-      document.getElementById('filterSort').addEventListener('change', renderTradeLog);
+      const fileSyncModal = document.getElementById('fileSyncModal');
+      if (fileSyncModal) fileSyncModal.addEventListener('change', importJSON);
 
-      document.getElementById('diaryTradeSelector').addEventListener('change', renderDiary);
+      const btnExportCSV = document.getElementById('btnExportCSV');
+      if (btnExportCSV) btnExportCSV.addEventListener('click', exportCSV);
 
-      document.getElementById('inpEntryImageFile').addEventListener('change', (e) => {
+      const btnGoogleSheetsGuide = document.getElementById('btnGoogleSheetsGuide');
+      if (btnGoogleSheetsGuide) btnGoogleSheetsGuide.addEventListener('click', () => openModal('modalGoogleSheetsGuide'));
+
+      const btnResetDemo = document.getElementById('btnResetDemo');
+      if (btnResetDemo) btnResetDemo.addEventListener('click', resetToDemoData);
+
+      const btnSettings = document.getElementById('btnSettings');
+      if (btnSettings) {
+        btnSettings.addEventListener('click', () => {
+          document.getElementById('settingEquity').value = appState.accountEquity;
+          document.getElementById('settingMonthEquity').value = appState.startOfMonthEquity;
+          document.getElementById('settingRiskLimit').value = appState.maxRiskPct;
+          document.getElementById('settingFee').value = appState.defaultFee;
+          openModal('modalSettings');
+        });
+      }
+
+      document.getElementById('filterSearch')?.addEventListener('input', renderTradeLog);
+      document.getElementById('filterInstrument')?.addEventListener('change', renderTradeLog);
+      document.getElementById('filterStatus')?.addEventListener('change', renderTradeLog);
+      document.getElementById('filterGrade')?.addEventListener('change', renderTradeLog);
+      document.getElementById('filterSetupType')?.addEventListener('change', renderTradeLog);
+      document.getElementById('filterSort')?.addEventListener('change', renderTradeLog);
+
+      document.getElementById('diaryTradeSelector')?.addEventListener('change', renderDiary);
+
+      document.getElementById('inpEntryImageFile')?.addEventListener('change', (e) => {
         handleImageFile(e.target.files[0], (b64) => {
           tempEntryImgBase64 = b64;
           document.getElementById('previewEntryImageThumb').innerHTML = `<img src="${b64}" class="w-full h-full object-cover">`;
         });
       });
 
-      document.getElementById('inpExitImageFile').addEventListener('change', (e) => {
+      document.getElementById('inpExitImageFile')?.addEventListener('change', (e) => {
         handleImageFile(e.target.files[0], (b64) => {
           tempExitImgBase64 = b64;
           document.getElementById('previewExitImageThumb').innerHTML = `<img src="${b64}" class="w-full h-full object-cover">`;
@@ -1811,15 +1870,15 @@
         }
       });
 
-      document.getElementById('formNewTrade').addEventListener('submit', handleNewTradeSubmit);
-      document.getElementById('formCloseTrade').addEventListener('submit', handleCloseTradeSubmit);
-      document.getElementById('closeExitPrice').addEventListener('input', updateClosePreview);
+      document.getElementById('formNewTrade')?.addEventListener('submit', handleNewTradeSubmit);
+      document.getElementById('formCloseTrade')?.addEventListener('submit', handleCloseTradeSubmit);
+      document.getElementById('closeExitPrice')?.addEventListener('input', updateClosePreview);
       ['chkRubricEntry', 'chkRubricStop', 'chkRubricSize', 'chkRubricExit'].forEach(id => {
-        document.getElementById(id).addEventListener('change', autoSuggestGrade);
+        document.getElementById(id)?.addEventListener('change', autoSuggestGrade);
       });
     }
 
-    function generateSyncToken() {
+    window.generateSyncToken = function() {
       try {
         const jsonStr = JSON.stringify(appState);
         const encoded = btoa(encodeURIComponent(jsonStr));
@@ -1828,9 +1887,9 @@
       } catch (e) {
         showToast("Error generating sync token", "warn");
       }
-    }
+    };
 
-    function copySyncToken() {
+    window.copySyncToken = function() {
       const txt = document.getElementById('txtSyncToken');
       if (!txt.value) {
         generateSyncToken();
@@ -1838,9 +1897,9 @@
       txt.select();
       navigator.clipboard.writeText(txt.value);
       showToast("Sync code copied to clipboard!", "success");
-    }
+    };
 
-    function applySyncToken() {
+    window.applySyncToken = function() {
       const code = document.getElementById('inpImportSyncToken').value.trim();
       if (!code) {
         showToast("Please paste a sync code first", "warn");
@@ -1866,7 +1925,7 @@
       } catch (e) {
         showToast("Failed to decode sync code. Check the text.", "warn");
       }
-    }
+    };
 
     function initRealtimeCalculators() {
       const entryInp = document.getElementById('inpEntryPrice');
@@ -1881,12 +1940,12 @@
       const tickerInp = document.getElementById('inpTicker');
 
       function updateEntryPreview() {
-        const entry = parseFloat(entryInp.value) || 0;
-        const stop = parseFloat(stopInp.value) || 0;
-        const target = parseFloat(targetInp.value) || 0;
-        const size = parseFloat(sizeInp.value) || 0;
-        const multiplier = parseFloat(multInp.value) || 1;
-        const leverage = parseFloat(levInp.value) || 1;
+        const entry = parseFloat(entryInp?.value) || 0;
+        const stop = parseFloat(stopInp?.value) || 0;
+        const target = parseFloat(targetInp?.value) || 0;
+        const size = parseFloat(sizeInp?.value) || 0;
+        const multiplier = parseFloat(multInp?.value) || 1;
+        const leverage = parseFloat(levInp?.value) || 1;
 
         if (entry <= 0 || stop <= 0) return;
 
@@ -1903,18 +1962,25 @@
           rewardRisk = rewardDist / priceDist;
         }
 
-        document.getElementById('previewDollarRisk').textContent = `$${totalRisk.toFixed(2)}`;
-        document.getElementById('previewRiskPct').textContent = `${riskPct.toFixed(2)}%`;
-        document.getElementById('previewReqMargin').textContent = `$${reqMargin.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
-        document.getElementById('previewRRRatio').textContent = `${rewardRisk.toFixed(1)} : 1`;
+        const pRisk = document.getElementById('previewDollarRisk');
+        const pPct = document.getElementById('previewRiskPct');
+        const pMargin = document.getElementById('previewReqMargin');
+        const pRR = document.getElementById('previewRRRatio');
+
+        if (pRisk) pRisk.textContent = `$${totalRisk.toFixed(2)}`;
+        if (pPct) pPct.textContent = `${riskPct.toFixed(2)}%`;
+        if (pMargin) pMargin.textContent = `$${reqMargin.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+        if (pRR) pRR.textContent = `${rewardRisk.toFixed(1)} : 1`;
 
         const badge = document.getElementById('preview2PctStatus');
-        if (riskPct > appState.maxRiskPct + 0.05) {
-          badge.textContent = `VIOLATION (> ${appState.maxRiskPct}%)`;
-          badge.className = "text-xs px-2 py-0.5 rounded font-sans font-bold bg-rose-500/20 text-rose-400";
-        } else {
-          badge.textContent = `PASSES 2% RULE`;
-          badge.className = "text-xs px-2 py-0.5 rounded font-sans font-bold bg-emerald-500/20 text-emerald-400";
+        if (badge) {
+          if (riskPct > appState.maxRiskPct + 0.05) {
+            badge.textContent = `VIOLATION (> ${appState.maxRiskPct}%)`;
+            badge.className = "text-xs px-2 py-0.5 rounded font-sans font-bold bg-rose-500/20 text-rose-400";
+          } else {
+            badge.textContent = `PASSES 2% RULE`;
+            badge.className = "text-xs px-2 py-0.5 rounded font-sans font-bold bg-emerald-500/20 text-emerald-400";
+          }
         }
       }
 
@@ -1993,44 +2059,55 @@
         const inst = calcInst?.value;
 
         const maxRisk = eq * (rPct / 100);
-        document.getElementById('calcMaxAllowedRisk').textContent = `$${maxRisk.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        const maxRiskEl = document.getElementById('calcMaxAllowedRisk');
+        if (maxRiskEl) maxRiskEl.textContent = `$${maxRisk.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
         if (ent > 0 && stp > 0) {
           const priceDist = Math.abs(ent - stp);
           const riskPerUnit = priceDist * mult;
-          document.getElementById('calcRiskPerShare').textContent = `$${riskPerUnit.toFixed(priceDist < 1 ? 4 : 2)}`;
+          const rShareEl = document.getElementById('calcRiskPerShare');
+          if (rShareEl) rShareEl.textContent = `$${riskPerUnit.toFixed(priceDist < 1 ? 4 : 2)}`;
 
           if (riskPerUnit > 0) {
             let units = maxRisk / riskPerUnit;
+            const suffixEl = document.getElementById('calcUnitSuffix');
             if (inst === 'STOCK') {
               units = Math.floor(units);
-              document.getElementById('calcUnitSuffix').textContent = 'shares';
+              if (suffixEl) suffixEl.textContent = 'shares';
             } else if (inst === 'CFD_FOREX') {
               units = parseFloat(units.toFixed(2));
-              document.getElementById('calcUnitSuffix').textContent = 'standard lots';
+              if (suffixEl) suffixEl.textContent = 'standard lots';
             } else {
               units = parseFloat(units.toFixed(2));
-              document.getElementById('calcUnitSuffix').textContent = 'contracts / units';
+              if (suffixEl) suffixEl.textContent = 'contracts / units';
             }
 
-            document.getElementById('calcOptimalShares').textContent = units.toLocaleString();
+            const optSharesEl = document.getElementById('calcOptimalShares');
+            if (optSharesEl) optSharesEl.textContent = units.toLocaleString();
 
             const notional = ent * units * mult;
             const margin = lev > 0 ? notional / lev : notional;
-            document.getElementById('calcRequiredMargin').textContent = `$${margin.toLocaleString(undefined, {maximumFractionDigits: 2})}`;
+            const reqMarginEl = document.getElementById('calcRequiredMargin');
+            if (reqMarginEl) reqMarginEl.textContent = `$${margin.toLocaleString(undefined, {maximumFractionDigits: 2})}`;
 
-            if (tgt > 0) {
+            const rrEl = document.getElementById('calcRewardRisk');
+            if (tgt > 0 && rrEl) {
               const rr = Math.abs(tgt - ent) / priceDist;
-              document.getElementById('calcRewardRisk').textContent = `${rr.toFixed(2)} : 1`;
-            } else {
-              document.getElementById('calcRewardRisk').textContent = '—';
+              rrEl.textContent = `${rr.toFixed(2)} : 1`;
+            } else if (rrEl) {
+              rrEl.textContent = '—';
             }
           }
         } else {
-          document.getElementById('calcRiskPerShare').textContent = '$0.00';
-          document.getElementById('calcOptimalShares').textContent = '0';
-          document.getElementById('calcRequiredMargin').textContent = '$0.00';
-          document.getElementById('calcRewardRisk').textContent = '—';
+          const rShareEl = document.getElementById('calcRiskPerShare');
+          const optSharesEl = document.getElementById('calcOptimalShares');
+          const reqMarginEl = document.getElementById('calcRequiredMargin');
+          const rrEl = document.getElementById('calcRewardRisk');
+
+          if (rShareEl) rShareEl.textContent = '$0.00';
+          if (optSharesEl) optSharesEl.textContent = '0';
+          if (reqMarginEl) reqMarginEl.textContent = '$0.00';
+          if (rrEl) rrEl.textContent = '—';
         }
       }
 
@@ -2040,9 +2117,9 @@
           if (val === 'STOCK') {
             calcMultiplier.value = 1;
             calcLeverage.value = 1;
-            document.getElementById('calcCfdSection').classList.add('hidden');
+            document.getElementById('calcCfdSection')?.classList.add('hidden');
           } else {
-            document.getElementById('calcCfdSection').classList.remove('hidden');
+            document.getElementById('calcCfdSection')?.classList.remove('hidden');
             if (val === 'CFD_INDEX') { calcMultiplier.value = 1; calcLeverage.value = 20; }
             else if (val === 'CFD_FOREX') { calcMultiplier.value = 100000; calcLeverage.value = 30; }
             else if (val === 'CFD_COMMODITY') { calcMultiplier.value = 100; calcLeverage.value = 20; }
@@ -2189,22 +2266,27 @@
     function setupMT5Import() {
       const open = () => {
         mt5Parsed = [];
-        document.getElementById('mt5Result').classList.add('hidden');
-        document.getElementById('mt5Error').classList.add('hidden');
-        document.getElementById('mt5File').value = '';
-        document.getElementById('mt5FileLabel').textContent = 'Tap to choose MT5 report (.html, .xlsx, .csv)';
-        document.getElementById('btnConfirmMT5').disabled = true;
+        document.getElementById('mt5Result')?.classList.add('hidden');
+        document.getElementById('mt5Error')?.classList.add('hidden');
+        const fileInp = document.getElementById('mt5File');
+        if (fileInp) fileInp.value = '';
+        const lbl = document.getElementById('mt5FileLabel');
+        if (lbl) lbl.textContent = 'Tap to choose MT5 report (.html, .xlsx, .csv)';
+        const btnConf = document.getElementById('btnConfirmMT5');
+        if (btnConf) btnConf.disabled = true;
         openModal('modalMT5');
       };
-      document.getElementById('btnImportMT5').addEventListener('click', open);
-      document.getElementById('btnImportMT5Top').addEventListener('click', open);
+      
+      document.getElementById('btnImportMT5')?.addEventListener('click', open);
+      document.getElementById('btnImportMT5Top')?.addEventListener('click', open);
 
-      document.getElementById('mt5File').addEventListener('change', async (e) => {
+      document.getElementById('mt5File')?.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
         const err = document.getElementById('mt5Error');
         const res = document.getElementById('mt5Result');
-        err.classList.add('hidden'); res.classList.add('hidden');
+        if (err) err.classList.add('hidden'); 
+        if (res) res.classList.add('hidden');
         document.getElementById('mt5FileLabel').textContent = file.name;
         document.getElementById('btnConfirmMT5').disabled = true;
         try {
@@ -2232,42 +2314,38 @@
           document.getElementById('mt5Preview').innerHTML = mt5Parsed.slice(0, 6).map(t =>
             `<tr class="border-b border-slate-800/60"><td class="py-1 pr-2 text-white">${t.ticker}</td><td class="pr-2 ${t.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'}">${t.direction}</td><td class="pr-2">${t.positionSize}</td><td class="pr-2 text-slate-500">${t.dateOut.slice(0,10)}</td><td class="text-right ${t.netPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}">${t.netPnL >= 0 ? '+' : ''}${t.netPnL.toFixed(2)}</td></tr>`).join('') +
             (mt5Parsed.length > 6 ? `<tr><td colspan="5" class="py-1 text-slate-500">+ ${mt5Parsed.length - 6} more</td></tr>` : '');
-          res.classList.remove('hidden');
+          if (res) res.classList.remove('hidden');
           document.getElementById('btnConfirmMT5').disabled = mt5Parsed.length === 0;
         } catch (ex) {
-          err.textContent = ex.message || 'Could not read that file.';
-          err.classList.remove('hidden');
+          if (err) {
+            err.textContent = ex.message || 'Could not read that file.';
+            err.classList.remove('hidden');
+          }
         }
       });
 
-      document.getElementById('btnConfirmMT5').addEventListener('click', () => {
+      document.getElementById('btnConfirmMT5')?.addEventListener('click', () => {
         if (!mt5Parsed.length) return;
         const n = mt5Parsed.length;
         const net = mt5Parsed.reduce((a, t) => a + t.netPnL, 0);
-        if (document.getElementById('mt5ChkDemo').checked) {
+        if (document.getElementById('mt5ChkDemo')?.checked) {
           appState.trades = appState.trades.filter(t => !['T-2026-001','T-2026-002','T-2026-003','T-2026-004','T-2026-005'].includes(t.id));
         }
         mt5Parsed.forEach((t) => { appState.trades.unshift(t); });
         if (!appState.customSetups.some(s => s.name === 'Unclassified (MT5 import)')) {
           appState.customSetups.push({ id: 's_mt5', name: 'Unclassified (MT5 import)', desc: 'Imported trades awaiting setup label' });
         }
-        if (document.getElementById('mt5ChkEquity').checked) appState.accountEquity += net;
+        if (document.getElementById('mt5ChkEquity')?.checked) appState.accountEquity += net;
         mt5Parsed = [];
         saveStorage();
         populateTickerMemoryFromTrades();
         closeModal('modalMT5');
         renderAll();
-        document.getElementById('filterGrade').value = 'NONE';
+        const fGrade = document.getElementById('filterGrade');
+        if (fGrade) fGrade.value = 'NONE';
         renderTradeLog();
         showToast(`Imported ${n} MT5 trades successfully!`, "success");
       });
-    }
-
-    function openModal(id) {
-      document.getElementById(id).classList.remove('hidden');
-    }
-    function closeModal(id) {
-      document.getElementById(id).classList.add('hidden');
     }
 
     function openNewTradeModal() {
@@ -2373,7 +2451,7 @@
       showToast(`Trade ${tradeId} (${ticker}) logged successfully!`, "success");
     }
 
-    function openCloseTradeModal(tradeId) {
+    window.openCloseTradeModal = function(tradeId) {
       const trade = appState.trades.find(t => t.id === tradeId);
       if (!trade) return;
 
@@ -2416,7 +2494,7 @@
       autoSuggestGrade();
       if (isReview && trade.grade) document.getElementById('closeGradeSelect').value = trade.grade;
       openModal('modalCloseTrade');
-    }
+    };
 
     function updateClosePreview() {
       const tradeId = document.getElementById('closeTradeId').value;
@@ -2441,33 +2519,41 @@
       if (trade.status === 'CLOSED') { netPnL = trade.netPnL; rMult = trade.rMultiple || 0; }
 
       const pnlEl = document.getElementById('closeRealizedPnL');
-      pnlEl.textContent = `${netPnL >= 0 ? '+' : ''}$${netPnL.toFixed(2)}`;
-      pnlEl.className = `text-base font-bold font-mono ${netPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+      if (pnlEl) {
+        pnlEl.textContent = `${netPnL >= 0 ? '+' : ''}$${netPnL.toFixed(2)}`;
+        pnlEl.className = `text-base font-bold font-mono ${netPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+      }
 
       const rEl = document.getElementById('closeRMultiple');
-      rEl.textContent = `${rMult >= 0 ? '+' : ''}${rMult.toFixed(2)}R`;
-      rEl.className = `text-base font-bold font-mono ${rMult >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+      if (rEl) {
+        rEl.textContent = `${rMult >= 0 ? '+' : ''}${rMult.toFixed(2)}R`;
+        rEl.className = `text-base font-bold font-mono ${rMult >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+      }
 
       const badge = document.getElementById('closeOutcomeBadge');
-      if (netPnL > 10) {
-        badge.textContent = "WINNER";
-        badge.className = "text-xs px-2 py-0.5 rounded font-sans font-bold bg-emerald-500/20 text-emerald-400";
-      } else if (netPnL < -10) {
-        badge.textContent = "LOSER";
-        badge.className = "text-xs px-2 py-0.5 rounded font-sans font-bold bg-rose-500/20 text-rose-400";
-      } else {
-        badge.textContent = "BREAKEVEN";
-        badge.className = "text-xs px-2 py-0.5 rounded font-sans font-bold bg-slate-800 text-slate-300";
+      if (badge) {
+        if (netPnL > 10) {
+          badge.textContent = "WINNER";
+          badge.className = "text-xs px-2 py-0.5 rounded font-sans font-bold bg-emerald-500/20 text-emerald-400";
+        } else if (netPnL < -10) {
+          badge.textContent = "LOSER";
+          badge.className = "text-xs px-2 py-0.5 rounded font-sans font-bold bg-rose-500/20 text-rose-400";
+        } else {
+          badge.textContent = "BREAKEVEN";
+          badge.className = "text-xs px-2 py-0.5 rounded font-sans font-bold bg-slate-800 text-slate-300";
+        }
       }
     }
 
     function autoSuggestGrade() {
-      const c1 = document.getElementById('chkRubricEntry').checked;
-      const c2 = document.getElementById('chkRubricStop').checked;
-      const c3 = document.getElementById('chkRubricSize').checked;
-      const c4 = document.getElementById('chkRubricExit').checked;
+      const c1 = document.getElementById('chkRubricEntry')?.checked;
+      const c2 = document.getElementById('chkRubricStop')?.checked;
+      const c3 = document.getElementById('chkRubricSize')?.checked;
+      const c4 = document.getElementById('chkRubricExit')?.checked;
 
       const selector = document.getElementById('closeGradeSelect');
+      if (!selector) return;
+
       const passCount = [c1, c2, c3, c4].filter(Boolean).length;
 
       if (!c2 || !c3) {
@@ -2530,10 +2616,10 @@
       trade.takeaway = takeaway;
       trade.exitImage = tempExitImgBase64 || "";
       trade.rubric = {
-        entry: document.getElementById('chkRubricEntry').checked,
-        stop: document.getElementById('chkRubricStop').checked,
-        size: document.getElementById('chkRubricSize').checked,
-        exit: document.getElementById('chkRubricExit').checked
+        entry: document.getElementById('chkRubricEntry')?.checked,
+        stop: document.getElementById('chkRubricStop')?.checked,
+        size: document.getElementById('chkRubricSize')?.checked,
+        exit: document.getElementById('chkRubricExit')?.checked
       };
 
       appState.accountEquity += netPnL;
@@ -2555,12 +2641,12 @@
       reader.readAsDataURL(file);
     }
 
-    function viewImageModal(src, caption) {
+    window.viewImageModal = function(src, caption) {
       if (!src) return;
       document.getElementById('imageViewerImg').src = src;
       document.getElementById('imageViewerCaption').textContent = caption || 'Chart Snapshot';
       openModal('modalImageViewer');
-    }
+    };
 
     function renderAll() {
       renderSetupOptions();
@@ -2572,13 +2658,16 @@
     }
 
     function updateTopMetrics() {
-      document.getElementById('metricEquity').textContent = `$${appState.accountEquity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      const metricEq = document.getElementById('metricEquity');
+      if (metricEq) metricEq.textContent = `$${appState.accountEquity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
       
       const max2Risk = appState.accountEquity * (appState.maxRiskPct / 100);
-      document.getElementById('metricMaxRisk').textContent = `$${max2Risk.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      const metricRisk = document.getElementById('metricMaxRisk');
+      if (metricRisk) metricRisk.textContent = `$${max2Risk.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
       const sixPctLimit = appState.startOfMonthEquity * 0.06;
-      document.getElementById('metric6PctLimit').textContent = `$${sixPctLimit.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
+      const metric6Limit = document.getElementById('metric6PctLimit');
+      if (metric6Limit) metric6Limit.textContent = `$${sixPctLimit.toLocaleString(undefined, {maximumFractionDigits: 0})}`;
 
       const currentMonth = new Date().toISOString().slice(0, 7);
       let monthlyRealizedLosses = 0;
@@ -2622,59 +2711,73 @@
       const totalMonthlyExposure = monthlyRealizedLosses + openRisk;
       const pctUsed = sixPctLimit > 0 ? (totalMonthlyExposure / sixPctLimit) * 100 : 0;
 
-      document.getElementById('metricCurrentMonthLoss').textContent = `$${totalMonthlyExposure.toFixed(2)}`;
-      document.getElementById('metric6PctUsed').textContent = `${pctUsed.toFixed(1)}%`;
+      const mCurrentMonth = document.getElementById('metricCurrentMonthLoss');
+      if (mCurrentMonth) mCurrentMonth.textContent = `$${totalMonthlyExposure.toFixed(2)}`;
+
+      const m6Used = document.getElementById('metric6PctUsed');
+      if (m6Used) m6Used.textContent = `${pctUsed.toFixed(1)}%`;
 
       const bar6 = document.getElementById('bar6Pct');
-      bar6.style.width = `${Math.min(pctUsed, 100)}%`;
+      if (bar6) bar6.style.width = `${Math.min(pctUsed, 100)}%`;
 
       const badge6 = document.getElementById('badge6PctStatus');
       const haltBanner = document.getElementById('alertHaltBanner');
 
-      if (pctUsed >= 100) {
-        badge6.textContent = "HALT!";
-        badge6.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white animate-pulse";
-        bar6.className = "bg-rose-500 h-1.5 rounded-full";
-        haltBanner.classList.remove('hidden');
-      } else if (pctUsed >= 75) {
-        badge6.textContent = "WARNING";
-        badge6.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400";
-        bar6.className = "bg-amber-500 h-1.5 rounded-full";
-        haltBanner.classList.add('hidden');
-      } else {
-        badge6.textContent = "SAFE";
-        badge6.className = "px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-400";
-        bar6.className = "bg-emerald-500 h-1.5 rounded-full";
-        haltBanner.classList.add('hidden');
+      if (badge6 && bar6 && haltBanner) {
+        if (pctUsed >= 100) {
+          badge6.textContent = "HALT!";
+          badge6.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-600 text-white animate-pulse";
+          bar6.className = "bg-rose-500 h-1.5 rounded-full";
+          haltBanner.classList.remove('hidden');
+        } else if (pctUsed >= 75) {
+          badge6.textContent = "WARNING";
+          badge6.className = "px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400";
+          bar6.className = "bg-amber-500 h-1.5 rounded-full";
+          haltBanner.classList.add('hidden');
+        } else {
+          badge6.textContent = "SAFE";
+          badge6.className = "px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-400";
+          bar6.className = "bg-emerald-500 h-1.5 rounded-full";
+          haltBanner.classList.add('hidden');
+        }
       }
 
       const disciplineScore = gradedCount > 0 ? Math.round((aOrBCount / gradedCount) * 100) : 100;
       const discEl = document.getElementById('metricDisciplineScore');
-      discEl.textContent = `${disciplineScore}%`;
-      discEl.className = `text-xl font-bold font-mono ${disciplineScore >= 85 ? 'text-emerald-400' : disciplineScore >= 70 ? 'text-amber-400' : 'text-rose-400'}`;
+      if (discEl) {
+        discEl.textContent = `${disciplineScore}%`;
+        discEl.className = `text-xl font-bold font-mono ${disciplineScore >= 85 ? 'text-emerald-400' : disciplineScore >= 70 ? 'text-amber-400' : 'text-rose-400'}`;
+      }
 
       const winRate = closedCount > 0 ? Math.round((winCount / closedCount) * 100) : 0;
       const avgR = closedCount > 0 ? (totalR / closedCount).toFixed(2) : '0.00';
-      document.getElementById('metricWinRate').textContent = `${winRate}%`;
-      document.getElementById('metricAvgR').textContent = `${avgR}R avg`;
+      const wRateEl = document.getElementById('metricWinRate');
+      const avgREl = document.getElementById('metricAvgR');
+
+      if (wRateEl) wRateEl.textContent = `${winRate}%`;
+      if (avgREl) avgREl.textContent = `${avgR}R avg`;
       
       const netEl = document.getElementById('metricNetPnL');
-      netEl.textContent = `${totalNetPnL >= 0 ? '+' : ''}$${totalNetPnL.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-      netEl.className = `font-mono font-semibold ${totalNetPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+      if (netEl) {
+        netEl.textContent = `${totalNetPnL >= 0 ? '+' : ''}$${totalNetPnL.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        netEl.className = `font-mono font-semibold ${totalNetPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+      }
 
-      document.getElementById('metricRuleBreaksCost').textContent = `-$${destructiveLosses.toFixed(2)}`;
-      document.getElementById('metricDestructiveCount').textContent = destructiveCount;
-      document.getElementById('tabCountTotal').textContent = appState.trades.length;
-    }
+      const rBreakCost = document.getElementById('metricRuleBreaksCost');
+      const dCount = document.getElementById('metricDestructiveCount');
+      const tCount = document.getElementById('tabCountTotal');
 
-    function dismissHaltBanner() {
-      document.getElementById('alertHaltBanner').classList.add('hidden');
+      if (rBreakCost) rBreakCost.textContent = `-$${destructiveLosses.toFixed(2)}`;
+      if (dCount) dCount.textContent = destructiveCount;
+      if (tCount) tCount.textContent = appState.trades.length;
     }
 
     function renderActiveTrades() {
       const container = document.getElementById('activeTradesGrid');
+      if (!container) return;
       const openTrades = appState.trades.filter(t => t.status === 'OPEN');
-      document.getElementById('badgeActiveCount').textContent = openTrades.length;
+      const bCount = document.getElementById('badgeActiveCount');
+      if (bCount) bCount.textContent = openTrades.length;
 
       if (openTrades.length === 0) {
         container.innerHTML = `
@@ -2730,12 +2833,12 @@
     }
 
     function renderTradeLog() {
-      const search = document.getElementById('filterSearch').value.toLowerCase();
-      const instFilter = document.getElementById('filterInstrument').value;
-      const statusFilter = document.getElementById('filterStatus').value;
-      const gradeFilter = document.getElementById('filterGrade').value;
-      const setupFilter = document.getElementById('filterSetupType').value;
-      const sortMode = document.getElementById('filterSort').value;
+      const search = document.getElementById('filterSearch')?.value.toLowerCase() || '';
+      const instFilter = document.getElementById('filterInstrument')?.value || 'ALL';
+      const statusFilter = document.getElementById('filterStatus')?.value || 'ALL';
+      const gradeFilter = document.getElementById('filterGrade')?.value || 'ALL';
+      const setupFilter = document.getElementById('filterSetupType')?.value || 'ALL';
+      const sortMode = document.getElementById('filterSort')?.value || 'date-desc';
 
       let filtered = appState.trades.filter(t => {
         const matchesSearch = t.ticker.toLowerCase().includes(search) || 
@@ -2762,13 +2865,15 @@
       const tbody = document.getElementById('tradeLogTableBody');
       const emptyState = document.getElementById('emptyLogState');
 
+      if (!tbody) return;
+
       if (filtered.length === 0) {
         tbody.innerHTML = '';
-        emptyState.classList.remove('hidden');
+        if (emptyState) emptyState.classList.remove('hidden');
         return;
       }
 
-      emptyState.classList.add('hidden');
+      if (emptyState) emptyState.classList.add('hidden');
       tbody.innerHTML = filtered.map(t => {
         const isOpen = t.status === 'OPEN';
         const pnlClass = t.netPnL > 0 ? 'text-emerald-400 font-semibold' : t.netPnL < 0 ? 'text-rose-400 font-semibold' : 'text-slate-400';
@@ -2841,7 +2946,7 @@
       }).join('');
     }
 
-    function deleteTrade(id) {
+    window.deleteTrade = function(id) {
       const idx = appState.trades.findIndex(t => t.id === id);
       if (idx !== -1) {
         appState.trades.splice(idx, 1);
@@ -2849,13 +2954,15 @@
         renderAll();
         showToast(`Trade ${id} deleted`, "info");
       }
-    }
+    };
 
-    function jumpToDiary(id) {
-      document.querySelector('[data-tab="tabDiary"]').click();
-      document.getElementById('diaryTradeSelector').value = id;
+    window.jumpToDiary = function(id) {
+      const diaryTab = document.querySelector('[data-tab="tabDiary"]');
+      if (diaryTab) diaryTab.click();
+      const selector = document.getElementById('diaryTradeSelector');
+      if (selector) selector.value = id;
       renderDiary();
-    }
+    };
 
     function populateDiarySelector() {
       const selector = document.getElementById('diaryTradeSelector');
@@ -2866,9 +2973,11 @@
     }
 
     function renderDiary() {
-      const selectedId = document.getElementById('diaryTradeSelector').value;
+      const selectedId = document.getElementById('diaryTradeSelector')?.value;
       const trade = appState.trades.find(t => t.id === selectedId) || appState.trades[0];
       const container = document.getElementById('diaryCardContainer');
+
+      if (!container) return;
 
       if (!trade) {
         container.innerHTML = `<div class="p-8 text-center text-slate-500">No trades recorded yet.</div>`;
@@ -3022,85 +3131,105 @@
         else if (t.grade === 'F') { countF++; if (t.netPnL < 0) destructiveLoss += Math.abs(t.netPnL); }
       });
 
-      document.getElementById('statCountA').textContent = countA;
-      document.getElementById('statCountB').textContent = countB;
-      document.getElementById('statCountC').textContent = countC;
-      document.getElementById('statCountF').textContent = countF;
+      const sA = document.getElementById('statCountA');
+      const sB = document.getElementById('statCountB');
+      const sC = document.getElementById('statCountC');
+      const sF = document.getElementById('statCountF');
 
-      document.getElementById('statTotalNet').textContent = `${actualPnL >= 0 ? '+' : ''}$${actualPnL.toFixed(2)}`;
-      document.getElementById('statTotalNet').className = `text-xs font-mono font-semibold ${actualPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+      if (sA) sA.textContent = countA;
+      if (sB) sB.textContent = countB;
+      if (sC) sC.textContent = countC;
+      if (sF) sF.textContent = countF;
 
-      document.getElementById('diagActualPnL').textContent = `${actualPnL >= 0 ? '+' : ''}$${actualPnL.toFixed(2)}`;
-      document.getElementById('diagDestructiveCost').textContent = `-$${destructiveLoss.toFixed(2)}`;
-      document.getElementById('diagHypotheticalPnL').textContent = `${hypotheticalPnL >= 0 ? '+' : ''}$${hypotheticalPnL.toFixed(2)}`;
+      const totalNetEl = document.getElementById('statTotalNet');
+      if (totalNetEl) {
+        totalNetEl.textContent = `${actualPnL >= 0 ? '+' : ''}$${actualPnL.toFixed(2)}`;
+        totalNetEl.className = `text-xs font-mono font-semibold ${actualPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`;
+      }
 
-      const ctxGrades = document.getElementById('chartGrades').getContext('2d');
-      if (chartGradesInstance) chartGradesInstance.destroy();
+      const dAct = document.getElementById('diagActualPnL');
+      const dDest = document.getElementById('diagDestructiveCost');
+      const dHyp = document.getElementById('diagHypotheticalPnL');
 
-      chartGradesInstance = new Chart(ctxGrades, {
-        type: 'doughnut',
-        data: {
-          labels: ['Grade A (Flawless)', 'Grade B (Good)', 'Grade C (Sloppy)', 'Grade F (Violation)'],
-          datasets: [{
-            data: [countA, countB, countC, countF],
-            backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#f43f5e'],
-            borderColor: '#0b0f19',
-            borderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 } } }
-          },
-          cutout: '65%'
+      if (dAct) dAct.textContent = `${actualPnL >= 0 ? '+' : ''}$${actualPnL.toFixed(2)}`;
+      if (dDest) dDest.textContent = `-$${destructiveLoss.toFixed(2)}`;
+      if (dHyp) dHyp.textContent = `${hypotheticalPnL >= 0 ? '+' : ''}$${hypotheticalPnL.toFixed(2)}`;
+
+      if (typeof Chart !== 'undefined') {
+        const cGradesEl = document.getElementById('chartGrades');
+        if (cGradesEl) {
+          const ctxGrades = cGradesEl.getContext('2d');
+          if (chartGradesInstance) chartGradesInstance.destroy();
+
+          chartGradesInstance = new Chart(ctxGrades, {
+            type: 'doughnut',
+            data: {
+              labels: ['Grade A (Flawless)', 'Grade B (Good)', 'Grade C (Sloppy)', 'Grade F (Violation)'],
+              datasets: [{
+                data: [countA, countB, countC, countF],
+                backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#f43f5e'],
+                borderColor: '#0b0f19',
+                borderWidth: 2
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 } } }
+              },
+              cutout: '65%'
+            }
+          });
         }
-      });
 
-      const ctxEquity = document.getElementById('chartEquity').getContext('2d');
-      if (chartEquityInstance) chartEquityInstance.destroy();
+        const cEquityEl = document.getElementById('chartEquity');
+        if (cEquityEl) {
+          const ctxEquity = cEquityEl.getContext('2d');
+          if (chartEquityInstance) chartEquityInstance.destroy();
 
-      const chronoTrades = [...closedTrades].sort((a, b) => new Date(a.dateIn) - new Date(b.dateIn));
-      let running = appState.accountEquity - actualPnL;
-      const labels = ['Start', ...chronoTrades.map(t => t.ticker)];
-      const dataPoints = [running];
+          const chronoTrades = [...closedTrades].sort((a, b) => new Date(a.dateIn) - new Date(b.dateIn));
+          let running = appState.accountEquity - actualPnL;
+          const labels = ['Start', ...chronoTrades.map(t => t.ticker)];
+          const dataPoints = [running];
 
-      chronoTrades.forEach(t => {
-        running += t.netPnL;
-        dataPoints.push(running);
-      });
+          chronoTrades.forEach(t => {
+            running += t.netPnL;
+            dataPoints.push(running);
+          });
 
-      chartEquityInstance = new Chart(ctxEquity, {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: 'Account Equity ($)',
-            data: dataPoints,
-            borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
-            fill: true,
-            tension: 0.25,
-            pointRadius: 4,
-            pointBackgroundColor: '#60a5fa'
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false }
-          },
-          scales: {
-            x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' } },
-            y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' } }
-          }
+          chartEquityInstance = new Chart(ctxEquity, {
+            type: 'line',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: 'Account Equity ($)',
+                data: dataPoints,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: true,
+                tension: 0.25,
+                pointRadius: 4,
+                pointBackgroundColor: '#60a5fa'
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false }
+              },
+              scales: {
+                x: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' } },
+                y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' } }
+              }
+            }
+          });
         }
-      });
+      }
     }
 
-    function saveAccountSettings() {
+    window.saveAccountSettings = function() {
       const eq = parseFloat(document.getElementById('settingEquity').value);
       const mEq = parseFloat(document.getElementById('settingMonthEquity').value);
       const rLim = parseFloat(document.getElementById('settingRiskLimit').value);
@@ -3115,9 +3244,9 @@
       closeModal('modalSettings');
       renderAll();
       showToast("Account parameters updated", "success");
-    }
+    };
 
-    function exportJSON() {
+    window.exportJSON = function() {
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appState, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
@@ -3126,9 +3255,9 @@
       downloadAnchor.click();
       downloadAnchor.remove();
       showToast("Journal JSON backup exported!", "success");
-    }
+    };
 
-    function importJSON(e) {
+    window.importJSON = function(e) {
       const file = e.target.files[0];
       if (!file) return;
 
@@ -3155,9 +3284,9 @@
         }
       };
       reader.readAsText(file);
-    }
+    };
 
-    function exportCSV() {
+    window.exportCSV = function() {
       if (appState.trades.length === 0) {
         showToast("No trades to export", "warn");
         return;
@@ -3186,9 +3315,9 @@
       link.click();
       link.remove();
       showToast("Trades exported to CSV for Excel!", "success");
-    }
+    };
 
-    function resetToDemoData() {
+    window.resetToDemoData = function() {
       appState.trades = JSON.parse(JSON.stringify(bookDemoTrades));
       appState.customSetups = [...defaultElderSetups];
       appState.accountEquity = 100000;
@@ -3197,10 +3326,11 @@
       saveStorage();
       renderAll();
       showToast("Book demo trades loaded", "info");
-    }
+    };
 
     function showToast(message, type = "info") {
       const container = document.getElementById('toastContainer');
+      if (!container) return;
       const toast = document.createElement('div');
 
       const colors = {
@@ -3228,8 +3358,11 @@
         setTimeout(() => toast.remove(), 300);
       }, 3500);
     }
- <script>
-    if ('serviceWorker' in navigator) {
+  </script>
+
+  <!-- ================= SERVICE WORKER REGISTRATION SCRIPT ================= -->
+  <script>
+    if ('serviceWorker' in navigator && (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
           .then(reg => console.log('Offline Service Worker Registered successfully:', reg.scope))
